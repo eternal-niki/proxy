@@ -1,212 +1,134 @@
-from flask import Flask, request, Response
-import requests
-from bs4 import BeautifulSoup
-from urllib.parse import urljoin
+import express from "express";
+import fetch from "node-fetch";
+import { JSDOM } from "jsdom";
 
-app = Flask(__name__)
+const app = express();
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 
+// フルページHTMLフォーム
+app.get("/", (req, res) => {
+  res.send(`
+  <html><head><meta charset="UTF-8"><title>MYAFOWebプロキシ</title></head>
+  <body>
+    <h1>MYAFOWebプロキシ</h1>
+    <form action="/proxy" method="post">
+      <input type="text" name="url" placeholder="https://example.com">
+      <button type="submit">送信</button>
+    </form>
+  </body></html>
+  `);
+});
 
-@app.route("/")
-def index():
-    return """
-    <!DOCTYPE html>
-    <html lang="ja">
-    <head>
-        <meta charset="UTF-8">
-        <title>MYAFOWebプロキシ</title>
-        <style>
-            body {
-                background-color: #121212;
-                color: #f5f5f5;
-                font-family: 'Segoe UI', sans-serif;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh;
-                margin: 0;
-            }
-            .container {
-                text-align: center;
-                background: #1e1e1e;
-                padding: 40px;
-                border-radius: 12px;
-                box-shadow: 0 0 20px rgba(0,0,0,0.7);
-            }
-            h1 {
-                margin-bottom: 20px;
-                font-size: 28px;
-                color: #00d8ff;
-            }
-            label {
-                font-size: 16px;
-                margin-bottom: 8px;
-                display: block;
-            }
-            input[type="text"] {
-                width: 100%;
-                max-width: 400px;
-                padding: 12px;
-                border: none;
-                border-radius: 8px;
-                margin-bottom: 20px;
-                font-size: 16px;
-            }
-            button {
-                background: #00d8ff;
-                border: none;
-                border-radius: 8px;
-                padding: 12px 24px;
-                font-size: 16px;
-                font-weight: bold;
-                color: #121212;
-                cursor: pointer;
-                transition: background 0.3s;
-            }
-            button:hover {
-                background: #00aacc;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>MYAFOWebプロキシ</h1>
-            <form action="/proxy" method="post">
-                <label for="url">URLを入力:</label>
-                <input type="text" id="url" name="url" placeholder="https://example.com">
-                <br>
-                <button type="submit">送信</button>
+// GET/POST共通ハンドラ
+async function handleProxy(url, res) {
+  if (!url) return res.status(400).send("URLを指定してください");
+
+  try {
+    const response = await fetch(url, { redirect: "manual" });
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get("location");
+      if (location) {
+        const newUrl = new URL(location, url).href;
+        return res.send(`
+          <html><body onload="submitForm()">
+            <form id="f" method="POST" action="/proxy">
+              <input type="hidden" name="url" value="${newUrl}">
             </form>
-        </div>
-    </body>
-    </html>
-    """
+            <script>
+            function submitForm() { document.getElementById('f').submit(); }
+            </script>
+          </body></html>
+        `);
+      }
+    }
 
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("text/html")) {
+      const html = await response.text();
+      const dom = new JSDOM(html);
+      const document = dom.window.document;
 
-@app.route("/proxy", methods=["GET", "POST"])
-def proxy():
-    # 送られてきたURLを取得
-    url = request.form.get("url") or request.args.get("url")
-    if not url:
-        return "urlを指定してください", 400
+      // タイトル偽装
+      if (document.querySelector("title")) document.querySelector("title").textContent = "無題のページ";
+      else {
+        const t = document.createElement("title");
+        t.textContent = "無題のページ";
+        document.head.appendChild(t);
+      }
 
-    try:
-        # GETはリダイレクトさせずに取得
-        resp = requests.get(url, allow_redirects=False)
-        content_type = resp.headers.get("Content-Type", "")
+      // favicon偽装
+      document.querySelectorAll('link[rel*="icon"]').forEach(el => el.remove());
+      const favicon = document.createElement("link");
+      favicon.rel = "icon";
+      favicon.href = "/proxy?url=https://example.com/favicon.ico";
+      document.head.appendChild(favicon);
 
-        # リダイレクトを検出
-        if resp.is_redirect or resp.is_permanent_redirect:
-            location = resp.headers.get("Location")
-            if location:
-                # 絶対URLに変換
-                new_url = urljoin(url, location)
-                # ブラウザでPOSTさせるフォームを返す
-                html = f"""
-                <html>
-                <body onload="redirectPost('{new_url}')">
-                    <noscript>
-                        <form action="/proxy" method="post">
-                            <input type="hidden" name="url" value="{new_url}">
-                            <button type="submit">Continue</button>
-                        </form>
-                    </noscript>
-                </body>
-                </html>
-                <script>
-                function redirectPost(targetUrl) {{
-                    var f = document.createElement('form');
-                    f.method = 'POST';
-                    f.action = '/proxy';
-                    var i = document.createElement('input');
-                    i.type = 'hidden';
-                    i.name = 'url';
-                    i.value = targetUrl;
-                    f.appendChild(i);
-                    document.body.appendChild(f);
-                    f.submit();
-                }}
-                </script>
-                """
-                return Response(html, content_type="text/html")
+      // aタグ → JSでPOST
+      document.querySelectorAll("a[href]").forEach(el => {
+        const absUrl = new URL(el.getAttribute("href"), url).href;
+        el.setAttribute("href", "#");
+        el.setAttribute("onclick", `proxyPost('${absUrl}')`);
+      });
 
-        # HTMLの場合はリンク・フォーム・リソースを書き換える
-        if "text/html" in content_type:
-            soup = BeautifulSoup(resp.text, "html.parser")
-            base_url = resp.url
+      // formタグ → actionを書き換え
+      document.querySelectorAll("form[action]").forEach(f => {
+        const absUrl = new URL(f.getAttribute("action"), url).href;
+        f.action = "/proxy";
+        const hidden = document.createElement("input");
+        hidden.type = "hidden";
+        hidden.name = "url";
+        hidden.value = absUrl;
+        f.prepend(hidden);
+      });
 
-            # ===== タイトル偽装 =====
-            if soup.title:
-                soup.title.string = "無題のページ"
-            else:
-                new_title = soup.new_tag("title")
-                new_title.string = "無題のページ"
-                if soup.head:
-                    soup.head.append(new_title)
+      // 画像・JS・CSS → GETで/proxy
+      ["img", "script", "link"].forEach(tagName => {
+        document.querySelectorAll(tagName).forEach(el => {
+          const attr = tagName === "link" ? "href" : "src";
+          if (!el.hasAttribute(attr)) return;
+          const absUrl = new URL(el.getAttribute(attr), url).href;
+          el.setAttribute(attr, `/proxy?url=${encodeURIComponent(absUrl)}`);
+        });
+      });
 
-            # ===== favicon偽装 =====
-            for link in soup.find_all("link", rel=lambda x: x and "icon" in x):
-                link.decompose()
-            favicon = soup.new_tag(
-                "link",
-                rel="icon",
-                href="/proxy?url=https://example.com/favicon.ico")
-            if soup.head:
-                soup.head.append(favicon)
+      // JS関数注入
+      const script = document.createElement("script");
+      script.textContent = `
+        function proxyPost(url) {
+          var f = document.createElement('form');
+          f.method = 'POST';
+          f.action = '/proxy';
+          var i = document.createElement('input');
+          i.type = 'hidden';
+          i.name = 'url';
+          i.value = url;
+          f.appendChild(i);
+          document.body.appendChild(f);
+          f.submit();
+        }
+      `;
+      document.body.appendChild(script);
 
-            # リンク → JS経由POST
-            for tag in soup.find_all("a", href=True):
-                abs_url = urljoin(base_url, tag["href"])
-                tag["href"] = "#"
-                tag["onclick"] = f"proxyPost('{abs_url}')"
+      res.set("Content-Type", "text/html");
+      return res.send(dom.serialize());
+    }
 
-            # フォーム → actionを/proxyに変更してhiddenでURL埋め込む
-            for form in soup.find_all("form", action=True):
-                abs_url = urljoin(base_url, form["action"])
-                form["action"] = "/proxy"
-                hidden = soup.new_tag("input",
-                                      type="hidden",
-                                      name="url",
-                                      value=abs_url)
-                form.insert(0, hidden)
+    // HTML以外はそのまま返す
+    const buffer = await response.arrayBuffer();
+    res.set("Content-Type", contentType);
+    res.send(Buffer.from(buffer));
+  } catch (err) {
+    res.status(500).send("取得エラー: " + err);
+  }
+}
 
-            # 画像・CSS・JS → GET経由で/proxyに
-            for tag in soup.find_all(["img", "script", "link"]):
-                attr = "href" if tag.name == "link" else "src"
-                if tag.has_attr(attr):
-                    abs_url = urljoin(base_url, tag[attr])
-                    tag[attr] = f"/proxy?url={abs_url}"
+// GET/POST共通ルート
+app.all("/proxy", async (req, res) => {
+  const url = req.body.url || req.query.url;
+  await handleProxy(url, res);
+});
 
-            # JS関数を注入（リンククリック用POST）
-            script_tag = soup.new_tag("script")
-            script_tag.string = """
-            function proxyPost(url) {
-                var f = document.createElement('form');
-                f.method = 'POST';
-                f.action = '/proxy';
-                var i = document.createElement('input');
-                i.type = 'hidden';
-                i.name = 'url';
-                i.value = url;
-                f.appendChild(i);
-                document.body.appendChild(f);
-                f.submit();
-            }
-            """
-            if soup.body:
-                soup.body.append(script_tag)
-
-            return Response(str(soup),
-                            status=resp.status_code,
-                            content_type=content_type)
-
-        # HTML以外（画像、CSS、JSなど）はそのまま返す
-        return Response(resp.content,
-                        status=resp.status_code,
-                        content_type=content_type)
-
-    except Exception as e:
-        return f"エラー: {e}", 500
-
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)
+// Render対応ポート
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Proxyサーバー起動: http://localhost:${PORT}`));
