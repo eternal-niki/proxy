@@ -25,24 +25,24 @@ def index():
     <html lang="ja">
     <head>
         <meta charset="UTF-8">
-        <title>MYAFOWebプロキシ</title>
+        <title弐紀Webプロキシ</title>
         <style>
             body { background-color: #121212; color: #f5f5f5; font-family: 'Segoe UI', sans-serif;
                    display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
             .container { text-align: center; background: #1e1e1e; padding: 40px; border-radius: 12px;
                          box-shadow: 0 0 20px rgba(0,0,0,0.7); }
-            h1 { margin-bottom: 20px; font-size: 28px; color: #00d8ff; }
+            h1 { margin-bottom: 20px; font-size: 28px; color: #7fffd4; }
             label { font-size: 16px; margin-bottom: 8px; display: block; }
             input[type="text"] { width: 100%; max-width: 400px; padding: 12px; border: none; border-radius: 8px;
                                  margin-bottom: 20px; font-size: 16px; }
-            button { background: #00d8ff; border: none; border-radius: 8px; padding: 12px 24px; font-size: 16px;
+            button { background: #7fffd4; border: none; border-radius: 8px; padding: 12px 24px; font-size: 16px;
                      font-weight: bold; color: #121212; cursor: pointer; transition: background 0.3s; }
             button:hover { background: #00aacc; }
         </style>
     </head>
     <body>
         <div class="container">
-            <h1>MYAFOWebプロキシ</h1>
+            <h1>弐紀Webプロキシ</h1>
             <form action="/proxy" method="post">
                 <label for="url">URLを入力:</label>
                 <input type="text" id="url" name="target_url" placeholder="https://example.com">
