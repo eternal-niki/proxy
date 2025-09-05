@@ -1,4 +1,4 @@
 beautifulsoup4>=4.13.5
 flask>=2.0.0
 requests>=2.25.0
-gunicorn
+gunicorn main:app
