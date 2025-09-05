@@ -15,7 +15,6 @@ HEADERS = {
     "ja,en;q=0.9",
     "Accept":
     "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-    "Referer": "https://syosetu.com/",  # 必要なら適当な正規URL
 }
 resp = session.get(url, allow_redirects=False)
 
