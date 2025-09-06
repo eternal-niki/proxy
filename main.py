@@ -108,27 +108,6 @@ def proxy():
             soup = BeautifulSoup(resp.text, "html.parser")
             base_url = resp.url
 
-            # ===== タイトル偽装 =====
-            if soup.title:
-                soup.title.string = "無題のページ"
-            else:
-                new_title = soup.new_tag("title")
-                new_title.string = "無題のページ"
-                if soup.head:
-                    soup.head.append(new_title)
-
-            # ===== favicon偽装 =====
-            for link in soup.find_all("link", rel=lambda x: x and "icon" in x):
-                link.decompose()
-            favicon = soup.new_tag(
-                "link",
-                attrs={
-                    "rel": "icon",
-                    "href": "/proxy?target_url=https://example.com/favicon.ico"
-                })
-            if soup.head:
-                soup.head.append(favicon)
-
             # ===== リンクをJS経由POSTに =====
             for tag in soup.find_all("a", href=True):
                 abs_url = urljoin(base_url, tag["href"])
