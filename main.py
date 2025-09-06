@@ -2,6 +2,7 @@ from flask import Flask, request, Response
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
+from flask import send_from_directory
 
 app = Flask(__name__)
 
@@ -15,6 +16,12 @@ HEADERS = {
     "Accept-Language": "ja,en;q=0.9",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
 }
+
+
+@app.route("/icon.ico")
+def icon():
+    return send_from_directory(directory=".", path="icon.ico")
+
 
 @app.route("/")
 def index():
