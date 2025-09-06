@@ -23,7 +23,7 @@ def index():
     <html lang="ja">
     <head>
         <meta charset="UTF-8">
-        <title弐紀Webプロキシ</title>
+        <title>弐紀Webプロキシ</title>
         <link rel="icon" href="/icon.ico" type="image/x-icon">
         <style>
             body { background-color: #121212; color: #f5f5f5; font-family: 'Segoe UI', sans-serif;
