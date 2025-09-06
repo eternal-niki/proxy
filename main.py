@@ -24,6 +24,7 @@ def index():
     <head>
         <meta charset="UTF-8">
         <title弐紀Webプロキシ</title>
+        <link rel="icon" href="/icon.ico" type="image/x-icon">
         <style>
             body { background-color: #121212; color: #f5f5f5; font-family: 'Segoe UI', sans-serif;
                    display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
