@@ -6,7 +6,6 @@ import base64
 
 app = Flask(__name__)
 
-# ブラウザっぽく見せるためのヘッダ
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -54,7 +53,7 @@ def index():
             <h1>弐紀Webプロキシ</h1>
             <form action="/proxy" method="post" id="proxyForm">
                 <label for="url">URLを入力:</label>
-                <input type="text" id="url" placeholder="https://example.com">
+                <input type="text" id="url" name="target_url" placeholder="https://example.com">
                 <div class="button-row">
                     <button type="button" onclick="encodeBase64()">エンコード</button>
                     <button type="submit">送信</button>
@@ -74,7 +73,6 @@ def index():
             try {
                 let encoded = btoa(unescape(encodeURIComponent(rawUrl)));
                 document.getElementById("b64").value = encoded;
-                // 完全URLで出力（GET用リンク）
                 let fullUrl = "https://proxy-xvup.onrender.com/proxy?b64=" + encoded + "&type=get";
                 document.getElementById("b64_output").innerText = fullUrl;
             } catch (e) {
@@ -89,23 +87,26 @@ def index():
 
 @app.route("/proxy", methods=["GET", "POST"])
 def proxy():
-    # URLをBase64から復元
-    b64_url = request.form.get("b64") or request.args.get("b64")
-    if not b64_url:
-        return "Base64エンコードされたURLを指定してください", 400
-
-    try:
-        url = base64.b64decode(b64_url).decode("utf-8")
-    except Exception:
-        return "Base64デコード失敗", 400
-
-    req_type = request.args.get("type") or request.form.get("type") or "post"
+    # POSTで生URLが送信されていたらそれを優先
+    url = request.form.get("target_url")
+    if url:
+        req_type = "post"
+    else:
+        # GET/POSTでb64が送られていた場合
+        b64_url = request.form.get("b64") or request.args.get("b64")
+        if not b64_url:
+            return "URLを指定してください", 400
+        try:
+            url = base64.b64decode(b64_url).decode("utf-8")
+        except Exception:
+            return "Base64デコード失敗", 400
+        req_type = request.args.get("type") or request.form.get("type") or "post"
 
     try:
         resp = requests.get(url, headers=HEADERS, allow_redirects=False)
         content_type = resp.headers.get("Content-Type", "")
 
-        # リダイレクトを処理
+        # リダイレクト処理
         if resp.is_redirect or resp.is_permanent_redirect:
             location = resp.headers.get("Location")
             if location:
@@ -113,7 +114,6 @@ def proxy():
                 new_b64 = base64.b64encode(new_url.encode("utf-8")).decode("utf-8")
 
                 if req_type == "get":
-                    # GETモード → b64リンクにして返す
                     html = f"""
                     <html>
                     <head>
@@ -122,15 +122,12 @@ def proxy():
                     </head>
                     <body>
                         <p>Redirecting... <a href="/proxy?b64={new_b64}&type=get">続行</a></p>
-                        <script>
-                            window.location.href = "/proxy?b64={new_b64}&type=get";
-                        </script>
+                        <script>window.location.href="/proxy?b64={new_b64}&type=get";</script>
                     </body>
                     </html>
                     """
                     return Response(html, content_type="text/html")
                 else:
-                    # POSTモード（従来通り）
                     html = f"""
                     <html>
                     <body onload="redirectPost('{new_b64}')">
@@ -159,11 +156,12 @@ def proxy():
                     """
                     return Response(html, content_type="text/html")
 
+        # HTMLコンテンツの場合
         if "text/html" in content_type:
             soup = BeautifulSoup(resp.text, "html.parser")
             base_url = resp.url
 
-            # ===== リンクを書き換え =====
+            # リンク書き換え
             for tag in soup.find_all("a", href=True):
                 abs_url = urljoin(base_url, tag["href"])
                 if abs_url.startswith("http"):
@@ -174,7 +172,7 @@ def proxy():
                         tag["href"] = "#"
                         tag["onclick"] = f"proxyPost('{abs_b64}')"
 
-            # ===== フォームを/proxyに変更 + hidden input =====
+            # フォーム書き換え
             for form in soup.find_all("form", action=True):
                 abs_url = urljoin(base_url, form["action"])
                 abs_b64 = base64.b64encode(abs_url.encode("utf-8")).decode("utf-8")
@@ -188,7 +186,7 @@ def proxy():
                 })
                 form.insert(0, hidden)
 
-            # ===== 画像・CSS・JSをGET経由/proxyに =====
+            # 画像・CSS・JS書き換え
             for tag in soup.find_all(["img", "script", "link"]):
                 attr = "href" if tag.name == "link" else "src"
                 if tag.has_attr(attr):
@@ -197,7 +195,7 @@ def proxy():
                         abs_b64 = base64.b64encode(abs_url.encode("utf-8")).decode("utf-8")
                         tag[attr] = f"/proxy?b64={abs_b64}&type=get"
 
-            # ===== JS関数 & 広告ブロック注入 =====
+            # JS関数 & 広告ブロック注入
             script_tag = soup.new_tag("script")
             script_tag.string = """
             function proxyPost(b64) {
