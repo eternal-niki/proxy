@@ -64,7 +64,7 @@ def index():
         </div>
 		</div>
 		<footer style="text-align:center; font-size:12px; color:#555; margin-top:20px; ">
-    		v1.1.0
+    		v1.2.0
 		</footer>
 
         <script>
@@ -74,7 +74,7 @@ def index():
             try {
                 let encoded = btoa(unescape(encodeURIComponent(rawUrl)));
                 document.getElementById("b64").value = encoded;
-                let fullUrl = "https://proxy-xvup.onrender.com/proxy?b64=" + encoded + "&type=get" + "?encodetype=https";
+                let fullUrl = "https://proxy-xvup.onrender.com/proxy?b64=" + encoded + "&type=get" + "&encodetype=https";
                 document.getElementById("b64_output").innerText = fullUrl;
             } catch(e) { alert("エンコードに失敗しました: " + e); }
         }
