@@ -1,8 +1,8 @@
-from flask import Flask, request, Response
+from flask import Flask, request, Response, send_from_directory
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
-from flask import send_from_directory
+import base64
 
 app = Flask(__name__)
 
@@ -42,20 +42,41 @@ def index():
             input[type="text"] { width: 100%; max-width: 400px; padding: 12px; border: none; border-radius: 8px;
                                  margin-bottom: 20px; font-size: 16px; }
             button { background: #7fffd4; border: none; border-radius: 8px; padding: 12px 24px; font-size: 16px;
-                     font-weight: bold; color: #121212; cursor: pointer; transition: background 0.3s; }
+                     font-weight: bold; color: #121212; cursor: pointer; transition: background 0.3s; margin: 4px; }
             button:hover { background: #00aacc; }
         </style>
     </head>
     <body>
         <div class="container">
             <h1>弐紀Webプロキシ</h1>
-            <form action="/proxy" method="post">
+            <form action="/proxy" method="post" id="proxyForm">
                 <label for="url">URLを入力:</label>
-                <input type="text" id="url" name="target_url" placeholder="https://example.com">
+                <input type="text" id="url" placeholder="https://example.com">
+                <br>
+                <button type="button" onclick="encodeBase64()">Base64にエンコード</button>
+                <br>
+                <input type="text" id="b64" name="b64" placeholder="Base64でエンコードされたURL">
                 <br>
                 <button type="submit">送信</button>
             </form>
         </div>
+
+        <script>
+        function encodeBase64() {
+            let rawUrl = document.getElementById("url").value.trim();
+            if (!rawUrl) {
+                alert("URLを入力してください");
+                return;
+            }
+            try {
+                // JavaScriptでBase64に変換
+                let encoded = btoa(unescape(encodeURIComponent(rawUrl)));
+                document.getElementById("b64").value = encoded;
+            } catch (e) {
+                alert("エンコードに失敗しました: " + e);
+            }
+        }
+        </script>
     </body>
     </html>
     """
@@ -63,9 +84,15 @@ def index():
 
 @app.route("/proxy", methods=["GET", "POST"])
 def proxy():
-    url = request.form.get("target_url") or request.args.get("target_url")
-    if not url:
-        return "URLを指定してください", 400
+    # URLをBase64から復元
+    b64_url = request.form.get("b64") or request.args.get("b64")
+    if not b64_url:
+        return "Base64エンコードされたURLを指定してください", 400
+
+    try:
+        url = base64.b64decode(b64_url).decode("utf-8")
+    except Exception:
+        return "Base64デコード失敗", 400
 
     try:
         resp = requests.get(url, headers=HEADERS, allow_redirects=False)
@@ -76,26 +103,27 @@ def proxy():
             location = resp.headers.get("Location")
             if location:
                 new_url = urljoin(url, location)
+                new_b64 = base64.b64encode(new_url.encode("utf-8")).decode("utf-8")
                 html = f"""
                 <html>
-                <body onload="redirectPost('{new_url}')">
+                <body onload="redirectPost('{new_b64}')">
                     <noscript>
                         <form action="/proxy" method="post">
-                            <input type="hidden" name="target_url" value="{new_url}">
+                            <input type="hidden" name="b64" value="{new_b64}">
                             <button type="submit">Continue</button>
                         </form>
                     </noscript>
                 </body>
                 </html>
                 <script>
-                function redirectPost(targetUrl) {{
+                function redirectPost(b64) {{
                     var f = document.createElement('form');
                     f.method = 'POST';
                     f.action = '/proxy';
                     var i = document.createElement('input');
                     i.type = 'hidden';
-                    i.name = 'target_url';
-                    i.value = targetUrl;
+                    i.name = 'b64';
+                    i.value = b64;
                     f.appendChild(i);
                     document.body.appendChild(f);
                     f.submit();
@@ -112,22 +140,22 @@ def proxy():
             for tag in soup.find_all("a", href=True):
                 abs_url = urljoin(base_url, tag["href"])
                 if abs_url.startswith("http"):
+                    abs_b64 = base64.b64encode(abs_url.encode("utf-8")).decode("utf-8")
                     tag["href"] = "#"
-                    tag["onclick"] = f"proxyPost('{abs_url}')"
+                    tag["onclick"] = f"proxyPost('{abs_b64}')"
 
             # ===== フォームを/proxyに変更 + hidden input =====
             for form in soup.find_all("form", action=True):
                 abs_url = urljoin(base_url, form["action"])
+                abs_b64 = base64.b64encode(abs_url.encode("utf-8")).decode("utf-8")
                 form["action"] = "/proxy"
-                for existing in form.find_all("input",
-                                              attrs={"name": "target_url"}):
+                for existing in form.find_all("input", attrs={"name": "b64"}):
                     existing.decompose()
-                hidden = soup.new_tag("input",
-                                      attrs={
-                                          "type": "hidden",
-                                          "name": "target_url",
-                                          "value": abs_url
-                                      })
+                hidden = soup.new_tag("input", attrs={
+                    "type": "hidden",
+                    "name": "b64",
+                    "value": abs_b64
+                })
                 form.insert(0, hidden)
 
             # ===== 画像・CSS・JSをGET経由/proxyに =====
@@ -136,19 +164,20 @@ def proxy():
                 if tag.has_attr(attr):
                     abs_url = urljoin(base_url, tag[attr])
                     if abs_url.startswith("http"):
-                        tag[attr] = f"/proxy?target_url={abs_url}"
+                        abs_b64 = base64.b64encode(abs_url.encode("utf-8")).decode("utf-8")
+                        tag[attr] = f"/proxy?b64={abs_b64}"
 
             # ===== JS関数 & 広告ブロック注入 =====
             script_tag = soup.new_tag("script")
             script_tag.string = """
-            function proxyPost(url) {
+            function proxyPost(b64) {
                 var f = document.createElement('form');
                 f.method = 'POST';
                 f.action = '/proxy';
                 var i = document.createElement('input');
                 i.type = 'hidden';
-                i.name = 'target_url';
-                i.value = url;
+                i.name = 'b64';
+                i.value = b64;
                 f.appendChild(i);
                 document.body.appendChild(f);
                 f.submit();
@@ -187,13 +216,9 @@ def proxy():
             if soup.body:
                 soup.body.append(script_tag)
 
-            return Response(str(soup),
-                            status=resp.status_code,
-                            content_type=content_type)
+            return Response(str(soup), status=resp.status_code, content_type=content_type)
 
-        return Response(resp.content,
-                        status=resp.status_code,
-                        content_type=content_type)
+        return Response(resp.content, status=resp.status_code, content_type=content_type)
 
     except Exception as e:
         return f"エラー: {e}", 500
