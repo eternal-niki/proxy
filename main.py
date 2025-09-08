@@ -36,14 +36,16 @@ def index():
             body { background-color: #121212; color: #f5f5f5; font-family: 'Segoe UI', sans-serif;
                    display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
             .container { text-align: center; background: #1e1e1e; padding: 40px; border-radius: 12px;
-                         box-shadow: 0 0 20px rgba(0,0,0,0.7); }
+                         box-shadow: 0 0 20px rgba(0,0,0,0.7); width: 100%; max-width: 500px; }
             h1 { margin-bottom: 20px; font-size: 28px; color: #7fffd4; }
             label { font-size: 16px; margin-bottom: 8px; display: block; }
-            input[type="text"] { width: 100%; max-width: 400px; padding: 12px; border: none; border-radius: 8px;
-                                 margin-bottom: 20px; font-size: 16px; }
+            input[type="text"] { width: 100%; padding: 12px; border: none; border-radius: 8px;
+                                 margin-bottom: 12px; font-size: 16px; }
             button { background: #7fffd4; border: none; border-radius: 8px; padding: 12px 24px; font-size: 16px;
-                     font-weight: bold; color: #121212; cursor: pointer; transition: background 0.3s; margin: 4px; }
+                     font-weight: bold; color: #121212; cursor: pointer; transition: background 0.3s; margin: 6px 0; }
             button:hover { background: #00aacc; }
+            .output { background: #2a2a2a; padding: 10px; border-radius: 8px; margin-top: 10px;
+                      word-break: break-all; font-family: monospace; font-size: 14px; }
         </style>
     </head>
     <body>
@@ -52,11 +54,9 @@ def index():
             <form action="/proxy" method="post" id="proxyForm">
                 <label for="url">URLを入力:</label>
                 <input type="text" id="url" placeholder="https://example.com">
-                <br>
                 <button type="button" onclick="encodeBase64()">Base64にエンコード</button>
-                <br>
-                <input type="text" id="b64" name="b64" placeholder="Base64でエンコードされたURL">
-                <br>
+                <div id="b64_output" class="output"></div>
+                <input type="hidden" id="b64" name="b64">
                 <button type="submit">送信</button>
             </form>
         </div>
@@ -69,9 +69,9 @@ def index():
                 return;
             }
             try {
-                // JavaScriptでBase64に変換
                 let encoded = btoa(unescape(encodeURIComponent(rawUrl)));
                 document.getElementById("b64").value = encoded;
+                document.getElementById("b64_output").innerText = encoded;
             } catch (e) {
                 alert("エンコードに失敗しました: " + e);
             }
