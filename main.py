@@ -64,7 +64,7 @@ def index():
         </div>
 		</div>
 		<footer style="text-align:center; font-size:12px; color:#555; margin-top:20px; ">
-    		v1.0.0
+    		v1.1.1
 		</footer>
 
         <script>
