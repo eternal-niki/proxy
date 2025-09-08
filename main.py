@@ -103,53 +103,40 @@ def proxy():
         resp = requests.get(url, headers=HEADERS, allow_redirects=False)
         content_type = resp.headers.get("Content-Type", "")
 
-        # リダイレクト処理
+        # リダイレクトをPOSTで処理
         if resp.is_redirect or resp.is_permanent_redirect:
             location = resp.headers.get("Location")
             if location:
                 new_url = urljoin(url, location)
                 new_b64 = base64.b64encode(new_url.encode("utf-8")).decode("utf-8")
+                html = f"""
+                <html>
+                <body onload="redirectPost('{new_b64}')">
+                    <noscript>
+                        <form action="/proxy" method="post">
+                            <input type="hidden" name="b64" value="{new_b64}">
+                            <button type="submit">Continue</button>
+                        </form>
+                    </noscript>
+                </body>
+                </html>
+                <script>
+                function redirectPost(b64) {{
+                    var f = document.createElement('form');
+                    f.method = 'POST';
+                    f.action = '/proxy';
+                    var i = document.createElement('input');
+                    i.type = 'hidden';
+                    i.name = 'b64';
+                    i.value = b64;
+                    f.appendChild(i);
+                    document.body.appendChild(f);
+                    f.submit();
+                }}
+                </script>
+                """
+                return Response(html, content_type="text/html")
 
-                # GETモード指定があるかどうか確認
-                redirect_type = request.args.get("type") or request.form.get("type")
-
-                if redirect_type == "get":
-                    # GETでリダイレクト
-                    return Response(
-                        f'<meta http-equiv="refresh" content="0; url=/proxy?b64={new_b64}&type=get">',
-                        content_type="text/html"
-                    )
-                else:
-                    # デフォルトは従来通りPOST
-                    html = f"""
-                    <html>
-                    <body onload="redirectPost('{new_b64}')">
-                        <noscript>
-                            <form action="/proxy" method="post">
-                                <input type="hidden" name="b64" value="{new_b64}">
-                                <button type="submit">Continue</button>
-                            </form>
-                        </noscript>
-                    </body>
-                    </html>
-                    <script>
-                    function redirectPost(b64) {{
-                        var f = document.createElement('form');
-                        f.method = 'POST';
-                        f.action = '/proxy';
-                        var i = document.createElement('input');
-                        i.type = 'hidden';
-                        i.name = 'b64';
-                        i.value = b64;
-                        f.appendChild(i);
-                        document.body.appendChild(f);
-                        f.submit();
-                    }}
-                    </script>
-                    """
-                    return Response(html, content_type="text/html")
-
-        # HTML の場合の書き換え処理
         if "text/html" in content_type:
             soup = BeautifulSoup(resp.text, "html.parser")
             base_url = resp.url
@@ -236,7 +223,6 @@ def proxy():
 
             return Response(str(soup), status=resp.status_code, content_type=content_type)
 
-        # HTML以外はそのまま返す
         return Response(resp.content, status=resp.status_code, content_type=content_type)
 
     except Exception as e:
@@ -245,3 +231,5 @@ def proxy():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
+
+
