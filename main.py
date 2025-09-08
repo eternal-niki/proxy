@@ -98,6 +98,9 @@ def proxy():
             return "Base64デコード失敗", 400
         req_type = request.args.get("type") or request.form.get("type") or "post"
 
+    # encodetype=https チェック
+    encode_https = request.args.get("encodetype") == "https"
+
     try:
         resp = requests.get(url, headers=HEADERS, allow_redirects=False)
         resp.encoding = resp.apparent_encoding  # 元サイトの文字コード自動判定
@@ -108,30 +111,44 @@ def proxy():
 
             for tag in soup.find_all("a", href=True):
                 abs_url = urljoin(base_url, tag["href"])
+                if encode_https and abs_url.startswith("http://"):
+                    abs_url = "https://" + abs_url[len("http://"):]
                 if abs_url.startswith("http"):
                     abs_b64 = base64.b64encode(abs_url.encode("utf-8")).decode("utf-8")
                     if req_type == "get":
                         tag["href"] = f"/proxy?b64={abs_b64}&type=get"
+                        if encode_https:
+                            tag["href"] += "&encodetype=https"
                     else:
                         tag["href"] = "#"
                         tag["onclick"] = f"proxyPost('{abs_b64}')"
 
             for form in soup.find_all("form", action=True):
                 abs_url = urljoin(base_url, form["action"])
+                if encode_https and abs_url.startswith("http://"):
+                    abs_url = "https://" + abs_url[len("http://"):]
                 abs_b64 = base64.b64encode(abs_url.encode("utf-8")).decode("utf-8")
                 form["action"] = "/proxy"
                 for existing in form.find_all("input", attrs={"name": "b64"}):
                     existing.decompose()
                 hidden = soup.new_tag("input", attrs={"type": "hidden", "name": "b64", "value": abs_b64})
                 form.insert(0, hidden)
+                # フォーム送信でも encodetype を引き継ぎたい場合
+                if encode_https:
+                    hidden_type = soup.new_tag("input", attrs={"type": "hidden", "name": "encodetype", "value": "https"})
+                    form.insert(1, hidden_type)
 
             for tag in soup.find_all(["img", "script", "link","iframe"]):
                 attr = "href" if tag.name == "link" else "src"
                 if tag.has_attr(attr):
                     abs_url = urljoin(base_url, tag[attr])
+                    if encode_https and abs_url.startswith("http://"):
+                        abs_url = "https://" + abs_url[len("http://"):]
                     if abs_url.startswith("http"):
                         abs_b64 = base64.b64encode(abs_url.encode("utf-8")).decode("utf-8")
                         tag[attr] = f"/proxy?b64={abs_b64}&type=get"
+                        if encode_https:
+                            tag[attr] += "&encodetype=https"
 
             script_tag = soup.new_tag("script")
             script_tag.string = """
@@ -164,6 +181,7 @@ def proxy():
 
     except Exception as e:
         return f"エラー: {e}", 500
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
