@@ -74,8 +74,8 @@ def index():
             try {
                 let encoded = btoa(unescape(encodeURIComponent(rawUrl)));
                 document.getElementById("b64").value = encoded;
-                // 完全URLで出力
-                let fullUrl = "https://proxy-xvup.onrender.com/proxy?b64=" + encoded;
+                // 完全URLで出力（GET用リンク）
+                let fullUrl = "https://proxy-xvup.onrender.com/proxy?b64=" + encoded + "&type=get";
                 document.getElementById("b64_output").innerText = fullUrl;
             } catch (e) {
                 alert("エンコードに失敗しました: " + e);
@@ -99,55 +99,80 @@ def proxy():
     except Exception:
         return "Base64デコード失敗", 400
 
+    req_type = request.args.get("type") or request.form.get("type") or "post"
+
     try:
         resp = requests.get(url, headers=HEADERS, allow_redirects=False)
         content_type = resp.headers.get("Content-Type", "")
 
-        # リダイレクトをPOSTで処理
+        # リダイレクトを処理
         if resp.is_redirect or resp.is_permanent_redirect:
             location = resp.headers.get("Location")
             if location:
                 new_url = urljoin(url, location)
                 new_b64 = base64.b64encode(new_url.encode("utf-8")).decode("utf-8")
-                html = f"""
-                <html>
-                <body onload="redirectPost('{new_b64}')">
-                    <noscript>
-                        <form action="/proxy" method="post">
-                            <input type="hidden" name="b64" value="{new_b64}">
-                            <button type="submit">Continue</button>
-                        </form>
-                    </noscript>
-                </body>
-                </html>
-                <script>
-                function redirectPost(b64) {{
-                    var f = document.createElement('form');
-                    f.method = 'POST';
-                    f.action = '/proxy';
-                    var i = document.createElement('input');
-                    i.type = 'hidden';
-                    i.name = 'b64';
-                    i.value = b64;
-                    f.appendChild(i);
-                    document.body.appendChild(f);
-                    f.submit();
-                }}
-                </script>
-                """
-                return Response(html, content_type="text/html")
+
+                if req_type == "get":
+                    # GETモード → b64リンクにして返す
+                    html = f"""
+                    <html>
+                    <head>
+                        <meta charset="utf-8">
+                        <meta http-equiv="refresh" content="0;url=/proxy?b64={new_b64}&type=get">
+                    </head>
+                    <body>
+                        <p>Redirecting... <a href="/proxy?b64={new_b64}&type=get">続行</a></p>
+                        <script>
+                            window.location.href = "/proxy?b64={new_b64}&type=get";
+                        </script>
+                    </body>
+                    </html>
+                    """
+                    return Response(html, content_type="text/html")
+                else:
+                    # POSTモード（従来通り）
+                    html = f"""
+                    <html>
+                    <body onload="redirectPost('{new_b64}')">
+                        <noscript>
+                            <form action="/proxy" method="post">
+                                <input type="hidden" name="b64" value="{new_b64}">
+                                <button type="submit">Continue</button>
+                            </form>
+                        </noscript>
+                    </body>
+                    </html>
+                    <script>
+                    function redirectPost(b64) {{
+                        var f = document.createElement('form');
+                        f.method = 'POST';
+                        f.action = '/proxy';
+                        var i = document.createElement('input');
+                        i.type = 'hidden';
+                        i.name = 'b64';
+                        i.value = b64;
+                        f.appendChild(i);
+                        document.body.appendChild(f);
+                        f.submit();
+                    }}
+                    </script>
+                    """
+                    return Response(html, content_type="text/html")
 
         if "text/html" in content_type:
             soup = BeautifulSoup(resp.text, "html.parser")
             base_url = resp.url
 
-            # ===== リンクをJS経由POSTに =====
+            # ===== リンクを書き換え =====
             for tag in soup.find_all("a", href=True):
                 abs_url = urljoin(base_url, tag["href"])
                 if abs_url.startswith("http"):
                     abs_b64 = base64.b64encode(abs_url.encode("utf-8")).decode("utf-8")
-                    tag["href"] = "#"
-                    tag["onclick"] = f"proxyPost('{abs_b64}')"
+                    if req_type == "get":
+                        tag["href"] = f"/proxy?b64={abs_b64}&type=get"
+                    else:
+                        tag["href"] = "#"
+                        tag["onclick"] = f"proxyPost('{abs_b64}')"
 
             # ===== フォームを/proxyに変更 + hidden input =====
             for form in soup.find_all("form", action=True):
@@ -170,7 +195,7 @@ def proxy():
                     abs_url = urljoin(base_url, tag[attr])
                     if abs_url.startswith("http"):
                         abs_b64 = base64.b64encode(abs_url.encode("utf-8")).decode("utf-8")
-                        tag[attr] = f"/proxy?b64={abs_b64}"
+                        tag[attr] = f"/proxy?b64={abs_b64}&type=get"
 
             # ===== JS関数 & 広告ブロック注入 =====
             script_tag = soup.new_tag("script")
@@ -231,5 +256,3 @@ def proxy():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
-
-
