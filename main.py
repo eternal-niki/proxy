@@ -47,7 +47,7 @@ def index():
                       word-break: break-all; font-family: monospace; font-size: 14px; }
         </style>
     </head>
-    <body>
+    <body style="background-color: #121212;">
 		<div class=body>
         <div class="container">
             <h1>弐紀Webプロキシ</h1>
