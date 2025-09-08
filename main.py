@@ -165,11 +165,33 @@ def proxy():
                 f.submit();
             }
             (function() {
-                const adSelectors = [...]; // 省略
-                const removeAds = () => { adSelectors.forEach(s => document.querySelectorAll(s).forEach(e=>e.remove())); };
-                removeAds(); setInterval(removeAds, 1000);
-                const observer = new MutationObserver(()=>removeAds());
-                observer.observe(document.body,{ childList:true,subtree:true });
+                const adSelectors = [
+                    '.c-ad','.c-ad__item-horizontal','[id^="gnpbad_"]','[data-gninstavoid]',
+                    '[data-cptid]','.adsbygoogle','[id^="ads-"]','.ad-container','.ad-slot',
+                    '.sponsored','.promotion','iframe[src*="ads"]','iframe[src*="doubleclick"]',
+                    'iframe[src*="googlesyndication.com"]','div[id^="taboola-"]','.taboola',
+                    '.outbrain','div[id^="ob-"]','script[src*="genieesspv.jp"]',
+                    'script[src*="imobile.co.jp"]','script[src*="imp-adedge.i-mobile.co.jp"]',
+                    '[id^="_geniee"]','[id^="im-"]','[id^="ad_"]','#ad_closed_panel',
+                    '[id^="google_ads_iframe_"]','#m2c-ad-parent-detail-page','.yads_ad',
+                    '.yads_ad_res_l','ytd-in-feed-ad-layout-renderer','.ytd-ad-slot-renderer',
+                    '#player-ads','#pb_template','[data-avm-id^="IFRAME-"]',
+                    '.adsSectionOuterWrapper','.adWrapper.BaseAd--adWrapper--ANZ1O.BaseAd--card--cqv7t',
+                    '.ci-bg-17992.ci-adhesion.ci-ad.ci-ad-4881','.top-ads-container.sticky-top',
+                    '.AuroraVisionContainer-ad','.adthrive-auto-injected-player-container.adthrive-collapse-player',
+                    '.adthrive','.AdThrive_Footer_1_desktop','.ad_300x250','[id^="bnc_ad_"][id$="_iframe"]',
+                    '[id^="AD_"]','script[src*="ad.ad-stir.com/ad"]','[id^="adstir_inview_"]',
+                    'iframe[src*="gmossp-sp.jp"]','#newAd_300x250','style-scope ytd-item-section-renderer'
+                ];
+                const removeAds = () => {
+                    adSelectors.forEach(selector => {
+                        document.querySelectorAll(selector).forEach(el => el.remove());
+                    });
+                };
+                removeAds();
+                setInterval(removeAds, 1000);
+                const observer = new MutationObserver(() => removeAds());
+                observer.observe(document.body, { childList: true, subtree: true });
             })();
             """
             if soup.body:
