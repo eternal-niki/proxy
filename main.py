@@ -28,9 +28,10 @@ def index():
     <head>
         <meta charset="UTF-8">
         <title>弐紀Webプロキシ</title>
+		
         <link rel="icon" href="/icon.ico" type="image/x-icon">
         <style>
-            body { background-color: #121212; color: #f5f5f5; font-family: 'Segoe UI', sans-serif;
+            .body { background-color: #121212; color: #f5f5f5; font-family: 'Segoe UI', sans-serif;
                    display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
             .container { text-align: center; background: #1e1e1e; padding: 40px; border-radius: 12px;
                          box-shadow: 0 0 20px rgba(0,0,0,0.7); width: 100%; max-width: 500px; }
@@ -47,6 +48,7 @@ def index():
         </style>
     </head>
     <body>
+		<div class=body>
         <div class="container">
             <h1>弐紀Webプロキシ</h1>
             <form action="/proxy" method="post" id="proxyForm">
@@ -60,6 +62,11 @@ def index():
                 <div id="b64_output" class="output"></div>
             </form>
         </div>
+		</div>
+		<footer style="text-align:center; font-size:12px; color:#555; margin-top:20px; ">
+    		v1.0.0
+		</footer>
+
         <script>
         function encodeBase64() {
             let rawUrl = document.getElementById("url").value.trim();
