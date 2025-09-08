@@ -74,7 +74,7 @@ def index():
             try {
                 let encoded = btoa(unescape(encodeURIComponent(rawUrl)));
                 document.getElementById("b64").value = encoded;
-                let fullUrl = "https://proxy-xvup.onrender.com/proxy?b64=" + encoded + "&type=get";
+                let fullUrl = "https://proxy-xvup.onrender.com/proxy?b64=" + encoded + "&type=get" + "?encodetype=https";
                 document.getElementById("b64_output").innerText = fullUrl;
             } catch(e) { alert("エンコードに失敗しました: " + e); }
         }
