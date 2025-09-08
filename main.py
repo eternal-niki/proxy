@@ -118,7 +118,7 @@ def proxy():
                 hidden = soup.new_tag("input", attrs={"type": "hidden", "name": "b64", "value": abs_b64})
                 form.insert(0, hidden)
 
-            for tag in soup.find_all(["img", "script", "link"]):
+            for tag in soup.find_all(["img", "script", "link","iframe"]):
                 attr = "href" if tag.name == "link" else "src"
                 if tag.has_attr(attr):
                     abs_url = urljoin(base_url, tag[attr])
