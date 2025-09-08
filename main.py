@@ -41,8 +41,9 @@ def index():
             label { font-size: 16px; margin-bottom: 8px; display: block; }
             input[type="text"] { width: 100%; padding: 12px; border: none; border-radius: 8px;
                                  margin-bottom: 12px; font-size: 16px; }
+            .button-row { display: flex; justify-content: space-between; margin-bottom: 12px; }
             button { background: #7fffd4; border: none; border-radius: 8px; padding: 12px 24px; font-size: 16px;
-                     font-weight: bold; color: #121212; cursor: pointer; transition: background 0.3s; margin: 6px 0; }
+                     font-weight: bold; color: #121212; cursor: pointer; transition: background 0.3s; }
             button:hover { background: #00aacc; }
             .output { background: #2a2a2a; padding: 10px; border-radius: 8px; margin-top: 10px;
                       word-break: break-all; font-family: monospace; font-size: 14px; }
@@ -54,10 +55,12 @@ def index():
             <form action="/proxy" method="post" id="proxyForm">
                 <label for="url">URLを入力:</label>
                 <input type="text" id="url" placeholder="https://example.com">
-                <button type="button" onclick="encodeBase64()">Base64にエンコード</button>
-                <div id="b64_output" class="output"></div>
+                <div class="button-row">
+                    <button type="button" onclick="encodeBase64()">エンコード</button>
+                    <button type="submit">送信</button>
+                </div>
                 <input type="hidden" id="b64" name="b64">
-                <button type="submit">送信</button>
+                <div id="b64_output" class="output"></div>
             </form>
         </div>
 
@@ -71,7 +74,9 @@ def index():
             try {
                 let encoded = btoa(unescape(encodeURIComponent(rawUrl)));
                 document.getElementById("b64").value = encoded;
-                document.getElementById("b64_output").innerText = encoded;
+                // 完全URLで出力
+                let fullUrl = "https://proxy-xvup.onrender.com/proxy?b64=" + encoded;
+                document.getElementById("b64_output").innerText = fullUrl;
             } catch (e) {
                 alert("エンコードに失敗しました: " + e);
             }
