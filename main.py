@@ -54,14 +54,6 @@ def index():
             <form action="/proxy" method="post" id="proxyForm">
                 <label for="url">URLを入力:</label>
                 <input type="text" id="url" name="target_url" placeholder="https://example.com">
-
-                <div style="margin: 10px 0;">
-                    <label>
-                        <input type="checkbox" id="use_original_meta" name="use_original_meta" value="true" checked>
-                        サイトのタイトル/ファビコンを使う
-                    </label>
-                </div>
-
                 <div class="button-row">
                     <button type="button" onclick="encodeBase64()">エンコード</button>
                     <button type="submit">送信</button>
@@ -72,7 +64,7 @@ def index():
         </div>
 		</div>
 		<footer style="text-align:center; font-size:12px; color:#555; margin-top:20px; ">
-    		v1.3.0
+    		v1.2.0
 		</footer>
 
         <script>
@@ -109,10 +101,6 @@ def proxy():
     # encodetype=https チェック
     encode_https = request.args.get("encodetype") == "https"
 
-    # meta切替チェック
-    use_original_meta = request.form.get("use_original_meta") or request.args.get("use_original_meta")
-    use_original_meta = (use_original_meta == "true")
-
     try:
         resp = requests.get(url, headers=HEADERS, allow_redirects=False)
         resp.encoding = resp.apparent_encoding  # 元サイトの文字コード自動判定
@@ -131,11 +119,9 @@ def proxy():
                         tag["href"] = f"/proxy?b64={abs_b64}&type=get"
                         if encode_https:
                             tag["href"] += "&encodetype=https"
-                        if not use_original_meta:
-                            tag["href"] += "&use_original_meta=false"
                     else:
                         tag["href"] = "#"
-                        tag["onclick"] = f"proxyPost('{abs_b64}', {str(use_original_meta).lower()})"
+                        tag["onclick"] = f"proxyPost('{abs_b64}')"
 
             for form in soup.find_all("form", action=True):
                 abs_url = urljoin(base_url, form["action"])
@@ -147,11 +133,10 @@ def proxy():
                     existing.decompose()
                 hidden = soup.new_tag("input", attrs={"type": "hidden", "name": "b64", "value": abs_b64})
                 form.insert(0, hidden)
+                # フォーム送信でも encodetype を引き継ぎたい場合
                 if encode_https:
                     hidden_type = soup.new_tag("input", attrs={"type": "hidden", "name": "encodetype", "value": "https"})
                     form.insert(1, hidden_type)
-                hidden_meta = soup.new_tag("input", attrs={"type": "hidden", "name": "use_original_meta", "value": str(use_original_meta).lower()})
-                form.insert(2, hidden_meta)
 
             for tag in soup.find_all(["img", "script", "link","iframe"]):
                 attr = "href" if tag.name == "link" else "src"
@@ -164,29 +149,10 @@ def proxy():
                         tag[attr] = f"/proxy?b64={abs_b64}&type=get"
                         if encode_https:
                             tag[attr] += "&encodetype=https"
-                        if not use_original_meta:
-                            tag[attr] += "&use_original_meta=false"
-
-            # meta制御
-            if not use_original_meta:
-                # タイトル固定
-                if soup.title:
-                    soup.title.string = "弐紀Webプロキシ"
-                else:
-                    new_title = soup.new_tag("title")
-                    new_title.string = "弐紀Webプロキシ"
-                    if soup.head:
-                        soup.head.insert(0, new_title)
-                # ファビコン差し替え
-                for link in soup.find_all("link", rel=lambda x: x and "icon" in x):
-                    link.decompose()
-                if soup.head:
-                    new_icon = soup.new_tag("link", rel="icon", href="/icon.ico", type="image/x-icon")
-                    soup.head.append(new_icon)
 
             script_tag = soup.new_tag("script")
             script_tag.string = """
-            function proxyPost(b64, use_original_meta) {
+            function proxyPost(b64) {
                 var f = document.createElement('form');
                 f.method = 'POST';
                 f.action = '/proxy';
@@ -195,31 +161,27 @@ def proxy():
                 i.name = 'b64';
                 i.value = b64;
                 f.appendChild(i);
-                var m = document.createElement('input');
-                m.type = 'hidden';
-                m.name = 'use_original_meta';
-                m.value = use_original_meta;
-                f.appendChild(m);
                 document.body.appendChild(f);
                 f.submit();
             }
             (function() {
-                const adSelectors = [".c-ad",".c-ad__item-horizontal","[id^='gnpbad_']","[data-gninstavoid]",
-                    "[data-cptid]",".adsbygoogle","[id^='ads-']",".ad-container",".ad-slot",
-                    ".sponsored",".promotion","iframe[src*='ads']","iframe[src*='doubleclick']",
-                    "iframe[src*='googlesyndication.com']","div[id^='taboola-']",".taboola",
-                    ".outbrain","div[id^='ob-']","script[src*='genieesspv.jp']",
-                    "script[src*='imobile.co.jp']","script[src*='imp-adedge.i-mobile.co.jp']",
-                    "[id^='_geniee']","[id^='im-']","[id^='ad_']","#ad_closed_panel",
-                    "[id^='google_ads_iframe_']","#m2c-ad-parent-detail-page",".yads_ad",
-                    ".yads_ad_res_l","ytd-in-feed-ad-layout-renderer",".ytd-ad-slot-renderer",
-                    "#player-ads","#pb_template","[data-avm-id^='IFRAME-']",
-                    ".adsSectionOuterWrapper",".adWrapper.BaseAd--adWrapper--ANZ1O.BaseAd--card--cqv7t",
-                    ".ci-bg-17992.ci-adhesion.ci-ad.ci-ad-4881",".top-ads-container.sticky-top",
-                    ".AuroraVisionContainer-ad",".adthrive-auto-injected-player-container.adthrive-collapse-player",
-                    ".adthrive",".AdThrive_Footer_1_desktop",".ad_300x250","[id^='bnc_ad_'][id$='_iframe']",
-                    "[id^='AD_']","script[src*='ad.ad-stir.com/ad']","[id^='adstir_inview_']",
-                    "iframe[src*='gmossp-sp.jp']","#newAd_300x250","style-scope ytd-item-section-renderer"
+                const adSelectors = [
+                    '.c-ad','.c-ad__item-horizontal','[id^="gnpbad_"]','[data-gninstavoid]',
+                    '[data-cptid]','.adsbygoogle','[id^="ads-"]','.ad-container','.ad-slot',
+                    '.sponsored','.promotion','iframe[src*="ads"]','iframe[src*="doubleclick"]',
+                    'iframe[src*="googlesyndication.com"]','div[id^="taboola-"]','.taboola',
+                    '.outbrain','div[id^="ob-"]','script[src*="genieesspv.jp"]',
+                    'script[src*="imobile.co.jp"]','script[src*="imp-adedge.i-mobile.co.jp"]',
+                    '[id^="_geniee"]','[id^="im-"]','[id^="ad_"]','#ad_closed_panel',
+                    '[id^="google_ads_iframe_"]','#m2c-ad-parent-detail-page','.yads_ad',
+                    '.yads_ad_res_l','ytd-in-feed-ad-layout-renderer','.ytd-ad-slot-renderer',
+                    '#player-ads','#pb_template','[data-avm-id^="IFRAME-"]',
+                    '.adsSectionOuterWrapper','.adWrapper.BaseAd--adWrapper--ANZ1O.BaseAd--card--cqv7t',
+                    '.ci-bg-17992.ci-adhesion.ci-ad.ci-ad-4881','.top-ads-container.sticky-top',
+                    '.AuroraVisionContainer-ad','.adthrive-auto-injected-player-container.adthrive-collapse-player',
+                    '.adthrive','.AdThrive_Footer_1_desktop','.ad_300x250','[id^="bnc_ad_"][id$="_iframe"]',
+                    '[id^="AD_"]','script[src*="ad.ad-stir.com/ad"]','[id^="adstir_inview_"]',
+                    'iframe[src*="gmossp-sp.jp"]','#newAd_300x250','style-scope ytd-item-section-renderer'
                 ];
                 const removeAds = () => {
                     adSelectors.forEach(selector => {
@@ -245,3 +207,6 @@ def proxy():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
+
+
+
