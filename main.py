@@ -92,7 +92,7 @@ def index():
                     <div id="b64_output" class="output"></div>
                 </form>
 
-                <footer>v1.3.0</footer>
+                <footer>v1.3.1</footer>
             </div>
         </div>
 
@@ -276,7 +276,7 @@ def proxy():
                     '.AuroraVisionContainer-ad','.adthrive-auto-injected-player-container.adthrive-collapse-player',
                     '.adthrive','.AdThrive_Footer_1_desktop','.ad_300x250','[id^="bnc_ad_"][id$="_iframe"]',
                     '[id^="AD_"]','script[src*="ad.ad-stir.com/ad"]','[id^="adstir_inview_"]',
-                    "iframe[src*='gmossp-sp.jp']",'#newAd_300x250','style-scope ytd-item-section-renderer'
+                    "iframe[src*='gmossp-sp.jp']",'#newAd_300x250','style-scope ytd-item-section-renderer','[id^="bnc_ad_"]'
                 ];
                 const removeAds = () => {
                     adSelectors.forEach(selector => {
