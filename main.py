@@ -27,7 +27,7 @@ def index():
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>弐紀Webプロキシ</title>
+<title>Webプロキシ</title>
 <link rel="icon" href="/icon.ico" type="image/x-icon">
 <style>
 :root { --bg:#121212;--card:#1e1e1e;--accent:#7fffd4;--muted:#555; }
@@ -74,7 +74,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;margin-top:12px;}
 <input type="hidden" id="original_meta" name="original_meta" value="true">
 <div id="b64_output" class="output"></div>
 </form>
-<footer>v1.3.6β</footer>
+<footer>v1.3.5</footer>
 </div>
 </div>
 
@@ -129,7 +129,7 @@ def proxy():
     use_original_meta = (request.args.get("original_meta")=="true") or (request.form.get("original_meta")=="true")
 
     try:
-        resp = requests.get(url, headers=HEADERS, allow_redirects=True, timeout=15)
+        resp = requests.get(url, headers=HEADERS, allow_redirects=False, timeout=15)
         resp.encoding = resp.apparent_encoding
         content_type = resp.headers.get("Content-Type","")
         if "text/html" in content_type:
@@ -183,10 +183,10 @@ def proxy():
 
             # meta/title書き換え
             if not use_original_meta:
-                if soup.title: soup.title.string = "弐紀Webプロキシ"
+                if soup.title: soup.title.string = "Web"
                 else:
                     new_title = soup.new_tag("title")
-                    new_title.string = "弐紀Webプロキシ"
+                    new_title.string = "Web"
                     if soup.head: soup.head.insert(0, new_title)
                 for link in soup.find_all("link", rel=lambda x:x and "icon" in x):
                     link.decompose()
