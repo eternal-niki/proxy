@@ -74,7 +74,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;margin-top:12px;}
 <input type="hidden" id="original_meta" name="original_meta" value="true">
 <div id="b64_output" class="output"></div>
 </form>
-<footer>v1.3.4β</footer>
+<footer>v1.3.5β</footer>
 </div>
 </div>
 
@@ -181,17 +181,6 @@ def proxy():
                             + ("&encodetype=https" if encode_https else "") \
                             + ("&original_meta=true" if use_original_meta else "")
 
-            # meta/title書き換え
-            if not use_original_meta:
-                if soup.title: soup.title.string = "弐紀Webプロキシ"
-                else:
-                    new_title = soup.new_tag("title")
-                    new_title.string = "弐紀Webプロキシ"
-                    if soup.head: soup.head.insert(0, new_title)
-                for link in soup.find_all("link", rel=lambda x:x and "icon" in x):
-                    link.decompose()
-                if soup.head: soup.head.append(soup.new_tag("link", rel="icon", href="/icon.ico", type="image/x-icon"))
-
             # 広告除去 & proxyPost スクリプト
             script_tag = soup.new_tag("script")
             script_tag.string = """
@@ -200,6 +189,7 @@ var f=document.createElement('form');f.method='POST';f.action='/proxy';
 var i=document.createElement('input');i.type='hidden';i.name='b64';i.value=b64;f.appendChild(i);
 var m=document.createElement('input');m.type='hidden';m.name='original_meta';m.value=use_original_meta?'true':'false';f.appendChild(m);
 document.body.appendChild(f);f.submit();}
+
 (function(){
 const adSelectors=['.c-ad','.c-ad__item-horizontal','[id^="gnpbad_"]','[data-gninstavoid]','[data-cptid]','.adsbygoogle','[id^="ads-"]','.ad-container','.ad-slot','.sponsored','.promotion','iframe[src*="ads"]','iframe[src*="doubleclick"]','iframe[src*="googlesyndication.com"]','div[id^="taboola-"]','.taboola','.outbrain','div[id^="ob-"]','script[src*="genieesspv.jp"]','script[src*="imobile.co.jp"]','script[src*="imp-adedge.i-mobile.co.jp"]','[id^="_geniee"]','[id^="im-"]','[id^="ad_"]','#ad_closed_panel','[id^="google_ads_iframe_"]','#m2c-ad-parent-detail-page','.yads_ad','.yads_ad_res_l','ytd-in-feed-ad-layout-renderer','.ytd-ad-slot-renderer','#player-ads','#pb_template','[data-avm-id^="IFRAME-"]','.adsSectionOuterWrapper','.adWrapper.BaseAd--adWrapper--ANZ1O.BaseAd--card--cqv7t','.ci-bg-17992.ci-adhesion.ci-ad.ci-ad-4881','.top-ads-container.sticky-top','.AuroraVisionContainer-ad','.adthrive-auto-injected-player-container.adthrive-collapse-player','.adthrive','.AdThrive_Footer_1_desktop','.ad_300x250','[id^="bnc_ad_"][id$="_iframe"]','[id^="AD_"]','script[src*="ad.ad-stir.com/ad"]','[id^="adstir_inview_"]',"iframe[src*='gmossp-sp.jp']",'#newAd_300x250','style-scope ytd-item-section-renderer','[id^="bnc_ad_"]'];
 const removeAds=()=>{adSelectors.forEach(selector=>{document.querySelectorAll(selector).forEach(el=>el.remove());});};
