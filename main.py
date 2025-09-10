@@ -74,7 +74,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;margin-top:12px;}
 <input type="hidden" id="original_meta" name="original_meta" value="true">
 <div id="b64_output" class="output"></div>
 </form>
-<footer>v1.3.5β</footer>
+<footer>v1.3.6β</footer>
 </div>
 </div>
 
@@ -129,7 +129,7 @@ def proxy():
     use_original_meta = (request.args.get("original_meta")=="true") or (request.form.get("original_meta")=="true")
 
     try:
-        resp = requests.get(url, headers=HEADERS, allow_redirects=False, timeout=15)
+        resp = requests.get(url, headers=HEADERS, allow_redirects=True, timeout=15)
         resp.encoding = resp.apparent_encoding
         content_type = resp.headers.get("Content-Type","")
         if "text/html" in content_type:
