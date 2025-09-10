@@ -55,7 +55,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;margin-top:12px;}
 <body>
 <div class="wrap">
 <div class="card">
-<h1>弐紀Webプロキシ</h1>
+<h1>Webプロキシ</h1>
 <form id="proxyForm" onsubmit="return submitProxy();">
 <label class="base" for="url">URLを入力：</label>
 <input type="text" id="url" name="target_url" placeholder="https://example.com">
@@ -74,7 +74,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;margin-top:12px;}
 <input type="hidden" id="original_meta" name="original_meta" value="true">
 <div id="b64_output" class="output"></div>
 </form>
-<footer>v1.3.3</footer>
+<footer>v1.3.4β</footer>
 </div>
 </div>
 
@@ -136,50 +136,65 @@ def proxy():
             soup = BeautifulSoup(resp.text,"html.parser")
             base_url = resp.url
 
-            # aタグ書き換え (検索ページも含めてプロキシ経由に)
-            for tag in soup.find_all("a",href=True):
-                abs_url=urljoin(base_url,tag["href"])
-                if encode_https and abs_url.startswith("http://"): abs_url="https://"+abs_url[len("http://"):]
+            # aタグ書き換え
+            for tag in soup.find_all("a", href=True):
+                abs_url = urljoin(base_url, tag["href"])
+                if encode_https and abs_url.startswith("http://"):
+                    abs_url = "https://" + abs_url[len("http://"):]
+                if tag.has_attr("onclick") and "submit" in tag["onclick"]:
+                    continue
                 if abs_url.startswith("http") or "/search.html" in abs_url:
-                    abs_b64=base64.b64encode(abs_url.encode("utf-8")).decode("utf-8")
-                    tag["href"]=f"/proxy?b64={abs_b64}&type=get" + ("&encodetype=https" if encode_https else "") + ("&original_meta=true" if use_original_meta else "")
+                    abs_b64 = base64.b64encode(abs_url.encode("utf-8")).decode("utf-8")
+                    tag["href"] = f"/proxy?b64={abs_b64}&type=get" \
+                        + ("&encodetype=https" if encode_https else "") \
+                        + ("&original_meta=true" if use_original_meta else "")
 
             # form書き換え
-            for form in soup.find_all("form",action=True):
-                abs_url=urljoin(base_url,form["action"])
-                if encode_https and abs_url.startswith("http://"): abs_url="https://"+abs_url[len("http://"):]
-                abs_b64=base64.b64encode(abs_url.encode("utf-8")).decode("utf-8")
-                form["action"]="/proxy"
-                for existing in form.find_all("input",attrs={"name":"b64"}): existing.decompose()
-                hidden=soup.new_tag("input",attrs={"type":"hidden","name":"b64","value":abs_b64})
-                form.insert(0,hidden)
+            for form in soup.find_all("form", action=True):
+                if form.get("name") == "player_form":  # JS依存フォームは書き換えない
+                    continue
+                abs_url = urljoin(base_url, form["action"])
+                if encode_https and abs_url.startswith("http://"):
+                    abs_url = "https://" + abs_url[len("http://"):]
+                abs_b64 = base64.b64encode(abs_url.encode("utf-8")).decode("utf-8")
+                form["action"] = "/proxy"
+                for existing in form.find_all("input", attrs={"name":"b64"}):
+                    existing.decompose()
+                hidden = soup.new_tag("input", attrs={"type":"hidden","name":"b64","value":abs_b64})
+                form.insert(0, hidden)
                 if encode_https:
-                    hidden_type=soup.new_tag("input",attrs={"type":"hidden","name":"encodetype","value":"https"})
-                    form.insert(1,hidden_type)
-                hidden_meta=soup.new_tag("input",attrs={"type":"hidden","name":"original_meta","value":"true" if use_original_meta else "false"})
-                form.insert(2,hidden_meta)
+                    hidden_type = soup.new_tag("input", attrs={"type":"hidden","name":"encodetype","value":"https"})
+                    form.insert(1, hidden_type)
+                hidden_meta = soup.new_tag("input", attrs={"type":"hidden","name":"original_meta","value":"true" if use_original_meta else "false"})
+                form.insert(2, hidden_meta)
 
-            # 画像/スクリプト/link/iframe書き換え（既存と同じ）
+            # img / script / link / iframe 書き換え
             for tag in soup.find_all(["img","script","link","iframe"]):
-                attr="href" if tag.name=="link" else "src"
+                attr = "href" if tag.name=="link" else "src"
                 if tag.has_attr(attr):
-                    abs_url=urljoin(base_url,tag[attr])
-                    if encode_https and abs_url.startswith("http://"): abs_url="https://"+abs_url[len("http://"):]
+                    abs_url = urljoin(base_url, tag[attr])
+                    if encode_https and abs_url.startswith("http://"):
+                        abs_url = "https://" + abs_url[len("http://"):]
                     if abs_url.startswith("http"):
-                        abs_b64=base64.b64encode(abs_url.encode("utf-8")).decode("utf-8")
-                        tag[attr]=f"/proxy?b64={abs_b64}&type=get" + ("&encodetype=https" if encode_https else "") + ("&original_meta=true" if use_original_meta else "")
+                        abs_b64 = base64.b64encode(abs_url.encode("utf-8")).decode("utf-8")
+                        tag[attr] = f"/proxy?b64={abs_b64}&type=get" \
+                            + ("&encodetype=https" if encode_https else "") \
+                            + ("&original_meta=true" if use_original_meta else "")
 
+            # meta/title書き換え
             if not use_original_meta:
-                if soup.title: soup.title.string="弐紀Webプロキシ"
+                if soup.title: soup.title.string = "弐紀Webプロキシ"
                 else:
-                    new_title=soup.new_tag("title")
-                    new_title.string="弐紀Webプロキシ"
-                    if soup.head: soup.head.insert(0,new_title)
-                for link in soup.find_all("link",rel=lambda x:x and "icon" in x): link.decompose()
-                if soup.head: soup.head.append(soup.new_tag("link",rel="icon",href="/icon.ico",type="image/x-icon"))
+                    new_title = soup.new_tag("title")
+                    new_title.string = "弐紀Webプロキシ"
+                    if soup.head: soup.head.insert(0, new_title)
+                for link in soup.find_all("link", rel=lambda x:x and "icon" in x):
+                    link.decompose()
+                if soup.head: soup.head.append(soup.new_tag("link", rel="icon", href="/icon.ico", type="image/x-icon"))
 
-            script_tag=soup.new_tag("script")
-            script_tag.string="""
+            # 広告除去 & proxyPost スクリプト
+            script_tag = soup.new_tag("script")
+            script_tag.string = """
 function proxyPost(b64,use_original_meta){
 var f=document.createElement('form');f.method='POST';f.action='/proxy';
 var i=document.createElement('input');i.type='hidden';i.name='b64';i.value=b64;f.appendChild(i);
@@ -192,9 +207,11 @@ removeAds();setInterval(removeAds,1000);const observer=new MutationObserver(()=>
 })();
 """
             if soup.body: soup.body.append(script_tag)
-            return Response(str(soup),status=resp.status_code,content_type="text/html; charset=utf-8")
 
-        return Response(resp.content,status=resp.status_code,content_type=content_type)
+            return Response(str(soup), status=resp.status_code, content_type="text/html; charset=utf-8")
+
+        return Response(resp.content, status=resp.status_code, content_type=content_type)
+
     except Exception as e:
         return f"エラー: {e}",500
 
