@@ -74,7 +74,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;margin-top:12px;}
 <input type="hidden" id="original_meta" name="original_meta" value="true">
 <div id="b64_output" class="output"></div>
 </form>
-<footer>v1.3.2</footer>
+<footer>v1.3.3</footer>
 </div>
 </div>
 
@@ -136,20 +136,13 @@ def proxy():
             soup = BeautifulSoup(resp.text,"html.parser")
             base_url = resp.url
 
-            # aタグ書き換え
+            # aタグ書き換え (検索ページも含めてプロキシ経由に)
             for tag in soup.find_all("a",href=True):
                 abs_url=urljoin(base_url,tag["href"])
                 if encode_https and abs_url.startswith("http://"): abs_url="https://"+abs_url[len("http://"):]
-                if abs_url.startswith("http"):
+                if abs_url.startswith("http") or "/search.html" in abs_url:
                     abs_b64=base64.b64encode(abs_url.encode("utf-8")).decode("utf-8")
-                    if req_type=="get":
-                        new_href=f"/proxy?b64={abs_b64}&type=get"
-                        if encode_https: new_href+="&encodetype=https"
-                        if use_original_meta: new_href+="&original_meta=true"
-                        tag["href"]=new_href
-                    else:
-                        tag["href"]="#"
-                        tag["onclick"]=f"proxyPost('{abs_b64}',{str(use_original_meta).lower()});return false;"
+                    tag["href"]=f"/proxy?b64={abs_b64}&type=get" + ("&encodetype=https" if encode_https else "") + ("&original_meta=true" if use_original_meta else "")
 
             # form書き換え
             for form in soup.find_all("form",action=True):
@@ -166,7 +159,7 @@ def proxy():
                 hidden_meta=soup.new_tag("input",attrs={"type":"hidden","name":"original_meta","value":"true" if use_original_meta else "false"})
                 form.insert(2,hidden_meta)
 
-            # 画像/スクリプト/link/iframe書き換え
+            # 画像/スクリプト/link/iframe書き換え（既存と同じ）
             for tag in soup.find_all(["img","script","link","iframe"]):
                 attr="href" if tag.name=="link" else "src"
                 if tag.has_attr(attr):
@@ -174,10 +167,7 @@ def proxy():
                     if encode_https and abs_url.startswith("http://"): abs_url="https://"+abs_url[len("http://"):]
                     if abs_url.startswith("http"):
                         abs_b64=base64.b64encode(abs_url.encode("utf-8")).decode("utf-8")
-                        new_attr=f"/proxy?b64={abs_b64}&type=get"
-                        if encode_https: new_attr+="&encodetype=https"
-                        if use_original_meta: new_attr+="&original_meta=true"
-                        tag[attr]=new_attr
+                        tag[attr]=f"/proxy?b64={abs_b64}&type=get" + ("&encodetype=https" if encode_https else "") + ("&original_meta=true" if use_original_meta else "")
 
             if not use_original_meta:
                 if soup.title: soup.title.string="弐紀Webプロキシ"
